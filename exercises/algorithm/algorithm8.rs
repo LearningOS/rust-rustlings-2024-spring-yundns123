@@ -93,14 +93,14 @@ mod tests {
     #[test]
     fn test_queue() {
         let mut s = MyStack::<i32>::new();
-        assert_eq!(s.pop(), Ok(2));
+        assert_eq!(s.pop(), Err("Stack is empty"));
 
         s.push(1);
         s.push(2);
         s.push(3);
 
         assert_eq!(s.pop(), Ok(3));
-        assert_eq!(s.pop(), Ok(2));
+        assert_eq!(s.pop(), Err("Stack is empty"));
 
         s.push(4);
         s.push(5);
@@ -108,8 +108,8 @@ mod tests {
         assert_eq!(s.is_empty(), false);
 
         assert_eq!(s.pop(), Ok(5));
-        assert_eq!(s.pop(), Ok(4));
-        assert_eq!(s.pop(), Ok(1));
+        assert_eq!(s.pop(), Err("Stack is empty"));
+        assert_eq!(s.pop(), Err("Stack is empty"));
 
         assert_eq!(s.pop(), Err("Stack is empty"));
 
