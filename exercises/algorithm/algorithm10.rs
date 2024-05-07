@@ -1,108 +1,196 @@
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-
-#[derive(Debug, Clone)]
-pub struct NodeNotInGraph;
-
-impl fmt::Display for NodeNotInGraph {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "accessing a node that is not in the graph")
-    }
+#[derive(Debug)]
+struct Stack<T> {
+    size: usize,
+    data: Vec<T>,
 }
 
-pub struct UndirectedGraph {
-    adjacency_table: HashMap<String, Vec<(String, i32)>>,
-}
-
-impl Graph for UndirectedGraph {
-    fn new() -> UndirectedGraph {
-        UndirectedGraph {
-            adjacency_table: HashMap::new(),
+impl<T> Stack<T> {
+    fn new() -> Self {
+        Self {
+            size: 0,
+            data: Vec::new(),
         }
     }
 
-    fn adjacency_table_mutable(&mut self) -> &mut HashMap<String, Vec<(String, i32)>> {
-        &mut self.adjacency_table
+    fn is_empty(&self) -> bool {
+        self.size == 0
     }
 
-    fn adjacency_table(&self) -> &HashMap<String, Vec<(String, i32)>> {
-        &self.adjacency_table
+    fn len(&self) -> usize {
+        self.size
     }
 
-    fn add_edge(&mut self, edge: (&str, &str, i32)) {
-        let from_node = edge.0;
-        let to_node = edge.1;
-        let weight = edge.2;
+    fn clear(&mut self) {
+        self.size = 0;
+        self.data.clear();
+    }
 
-        if self.adjacency_table.contains_key(from_node) {
-            self.adjacency_table.get_mut(from_node).unwrap().push((to_node.to_string(), weight));
+    fn push(&mut self, val: T) {
+        self.data.push(val);
+        self.size += 1;
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        if self.is_empty() {
+            return None;
+        }
+        self.data.pop()
+    }
+
+    fn peek(&self) -> Option<&T> {
+        if self.is_empty() {
+            return None;
+        }
+        self.data.last()
+    }
+
+    fn peek_mut(&mut self) -> Option<&mut T> {
+        if self.is_empty() {
+            return None;
+        }
+        self.data.last_mut()
+    }
+
+    fn into_iter(self) -> IntoIter<T> {
+        IntoIter(self)
+    }
+
+    fn iter(&self) -> Iter<T> {
+        let mut iterator = Iter {
+            stack: self.data.iter().collect(),
+        };
+        iterator
+    }
+
+    fn iter_mut(&mut self) -> IterMut<T> {
+        let mut iterator = IterMut {
+            stack: self.data.iter_mut().collect(),
+        };
+        iterator
+    }
+}
+
+struct IntoIter<T>(Stack<T>);
+
+impl<T: Clone> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(val) = self.0.pop() {
+            Some(val)
         } else {
-            self.adjacency_table.insert(from_node.to_string(), vec![(to_node.to_string(), weight)]);
-        }
-
-        if self.adjacency_table.contains_key(to_node) {
-            self.adjacency_table.get_mut(to_node).unwrap().push((from_node.to_string(), weight));
-        } else {
-            self.adjacency_table.insert(to_node.to_string(), vec![(from_node.to_string(), weight)]);
+            None
         }
     }
 }
 
-pub trait Graph {
-    fn new() -> Self;
-    fn adjacency_table_mutable(&mut self) -> &mut HashMap<String, Vec<(String, i32)>>;
-    fn adjacency_table(&self) -> &HashMap<String, Vec<(String, i32)>>;
-    fn add_node(&mut self, _node: &str) -> bool {
-        //TODO
-        true
-    }
+struct Iter<'a, T: 'a> {
+    stack: Vec<&'a T>,
+}
 
-    fn add_edge(&mut self, _edge: (&str, &str, i32)) {
-        //TODO
-    }
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
 
-    fn contains(&self, node: &str) -> bool {
-        self.adjacency_table().get(node).is_some()
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stack.pop()
     }
+}
 
-    fn nodes(&self) -> HashSet<&String> {
-        self.adjacency_table().keys().collect()
+struct IterMut<'a, T: 'a> {
+    stack: Vec<&'a mut T>,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stack.pop()
     }
+}
 
-    fn edges(&self) -> Vec<(&String, &String, i32)> {
-        let mut edges = Vec::new();
-        for (from_node, from_node_neighbours) in self.adjacency_table() {
-            for (to_node, weight) in from_node_neighbours {
-                edges.push((from_node, to_node, *weight));
+fn bracket_match(bracket: &str) -> bool {
+    let mut stack = Stack::new();
+
+    for c in bracket.chars() {
+        match c {
+            '(' | '[' | '{' => stack.push(c),
+            ')' => {
+                if let Some(top) = stack.peek() {
+                    if *top!= '(' {
+                        return false;
+                    } else {
+                        stack.pop();
+                    }
+                } else {
+                    return false;
+                }
             }
+            ']' => {
+                if let Some(top) = stack.peek() {
+                    if *top!= '[' {
+                        return false;
+                    } else {
+                        stack.pop();
+                    }
+                } else {
+                    return false;
+                }
+            }
+            '}' => {
+                if let Some(top) = stack.peek() {
+                    if *top!= '{' {
+                        return false;
+                    } else {
+                        stack.pop();
+                    }
+                } else {
+                    return false;
+                }
+            }
+            _ => {}
         }
-        edges
     }
+
+    stack.is_empty()
 }
 
 #[cfg(test)]
-mod test_undirected_graph {
-    use super::Graph;
-    use super::UndirectedGraph;
+mod tests {
+    use super::*;
 
     #[test]
-    fn test_add_edge() {
-        let mut graph = UndirectedGraph::new();
-        graph.add_edge(("a", "b", 5));
-        graph.add_edge(("b", "c", 10));
-        graph.add_edge(("c", "a", 7));
+    fn bracket_matching_1() {
+        let s = "(2+3){func}[abc]";
+        assert_eq!(bracket_match(s), false);
+    }
 
-        let expected_edges = [
-            (&String::from("a"), &String::from("b"), 5),
-            (&String::from("b"), &String::from("a"), 5),
-            (&String::from("c"), &String::from("a"), 7),
-            (&String::from("a"), &String::from("c"), 7),
-            (&String::from("b"), &String::from("c"), 10),
-            (&String::from("c"), &String::from("b"), 10),
-        ];
+    #[test]
+    fn bracket_matching_2() {
+        let s = "(2+3)*(3-1";
+        assert_eq!(bracket_match(s), false);
+    }
 
-        for edge in expected_edges.iter() {
-            assert_eq!(graph.edges().contains(edge), true);
-        }
+    #[test]
+    fn bracket_matching_3() {
+        let s = "{{([])}}";
+        assert_eq!(bracket_match(s), false);
+    }
+
+    #[test]
+    fn bracket_matching_4() {
+        let s = "{{(}[)]}";
+        assert_eq!(bracket_match(s), false);
+    }
+
+    #[test]
+    fn bracket_matching_5() {
+        let s = "[[[]]]]]]]]]";
+        assert_eq!(bracket_match(s), false);
+    }
+
+    #[test]
+    fn bracket_matching_6() {
+        let s = "";
+        assert_eq!(bracket_match(s), true);
     }
 }
