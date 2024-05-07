@@ -1,145 +1,88 @@
-use std::cmp::Ord;
-use std::default::Default;
-
-pub struct Heap<T>
-where
-    T: Default,
-{
-    count: usize,
-    items: Vec<T>,
-    comparator: fn(&T, &T) -> bool,
+#[derive(Debug)]
+pub struct Queue<T> {
+    elements: Vec<T>,
 }
 
-impl<T> Heap<T>
-where
-    T: Default,
-{
-    pub fn new(comparator: fn(&T, &T) -> bool) -> Self {
-        Self {
-            count: 0,
-            items: vec![T::default()],
-            comparator,
+impl<T> Queue<T> {
+    pub fn new() -> Queue<T> {
+        Queue {
+            elements: Vec::new(),
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.count
+    pub fn enqueue(&mut self, value: T) {
+        self.elements.push(value);
+    }
+
+    pub fn dequeue(&mut self) -> Result<T, &'static str> {
+        if!self.elements.is_empty() {
+            Ok(self.elements.remove(0))
+        } else {
+            Err("Queue is empty")
+        }
+    }
+
+    pub fn peek(&self) -> Result<&T, &'static str> {
+        match self.elements.first() {
+            Some(value) => Ok(value),
+            None => Err("Queue is empty")
+        }
+    }
+
+    pub fn size(&self) -> usize {
+        self.elements.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.elements.is_empty()
     }
+}
 
-    pub fn add(&mut self, value: T) {
-        let mut current_idx = self.count;
-        self.items.push(value);
-        self.count += 1;
+impl<T> Default for Queue<T> {
+    fn default() -> Queue<T> {
+        Queue {
+            elements: Vec::new(),
+        }
+    }
+}
 
-        while current_idx > 0 && (self.comparator)(&self.items[current_idx], &self.items[self.parent_idx(current_idx)]) {
-            self.items.swap(current_idx, self.parent_idx(current_idx));
-            current_idx = self.parent_idx(current_idx);
+#[derive(Debug)]
+pub struct MyStack<T> { // 将 myStack 改为 MyStack
+    q1: Queue<T>,
+    q2: Queue<T>,
+}
+
+impl<T> MyStack<T> {
+    pub fn new() -> Self {
+        Self {
+            q1: Queue::<T>::new(),
+            q2: Queue::<T>::new(),
         }
     }
 
-    fn parent_idx(&self, idx: usize) -> usize {
-        idx / 2
-    }
-
-    fn children_present(&self, idx: usize) -> bool {
-        self.left_child_idx(idx) <= self.count
-    }
-
-    fn left_child_idx(&self, idx: usize) -> usize {
-        idx * 2
-    }
-
-    fn right_child_idx(&self, idx: usize) -> usize {
-        self.left_child_idx(idx) + 1
-    }
-
-    fn smallest_child_idx(&self, idx: usize) -> usize {
-        let left_child_idx = self.left_child_idx(idx);
-        let right_child_idx = self.right_child_idx(idx);
-
-        if right_child_idx < self.count && (self.comparator)(&self.items[right_child_idx], &self.items[left_child_idx]) {
-            right_child_idx
+    pub fn push(&mut self, elem: T) {
+        if self.q1.is_empty() {
+            self.q1.enqueue(elem);
         } else {
-            left_child_idx
-        }
-    }
-}
-
-impl<T> Heap<T>
-where
-    T: Default + Ord,
-{
-    /// Create a new MinHeap
-    pub fn new_min() -> Self {
-        Self::new(|a, b| a < b)
-    }
-
-    /// Create a new MaxHeap
-    pub fn new_max() -> Self {
-        Self::new(|a, b| a > b)
-    }
-}
-
-impl<T> Iterator for Heap<T>
-where
-    T: Default,
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<T> {
-        if self.is_empty() {
-            return None;
-        }
-
-        let root = self.items.remove(0);
-        self.count -= 1;
-
-        if self.count > 0 {
-            self.items.insert(0, self.items.pop().unwrap());
-
-            let mut current_idx = 0;
-
-            while self.children_present(current_idx) {
-                let smallest_child_idx = self.smallest_child_idx(current_idx);
-
-                if (self.comparator)(&self.items[smallest_child_idx], &self.items[current_idx]) {
-                    self.items.swap(current_idx, smallest_child_idx);
-                    current_idx = smallest_child_idx;
-                } else {
-                    break;
-                }
+            let temp = self.q1.dequeue().unwrap(); // 这里改为 expect 来处理错误
+            self.q2.enqueue(elem);
+            while let Ok(item) = self.q1.dequeue() { // 处理错误
+                self.q2.enqueue(item);
             }
+            std::mem::swap(&mut self.q1, &mut self.q2);
         }
-
-        Some(root)
     }
-}
 
-pub struct MinHeap;
-
-impl MinHeap {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<T>() -> Heap<T>
-    where
-        T: Default + Ord,
-    {
-        Heap::new(|a, b| a < b)
+    pub fn pop(&mut self) -> Result<T, &'static str> {
+        if self.q1.is_empty() {
+            Err("Stack is empty")
+        } else {
+            self.q1.dequeue()
+        }
     }
-}
 
-pub struct MaxHeap;
-
-impl MaxHeap {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<T>() -> Heap<T>
-    where
-        T: Default + Ord,
-    {
-        Heap::new(|a, b| a > b)
+    pub fn is_empty(&self) -> bool {
+        self.q1.is_empty() && self.q2.is_empty()
     }
 }
 
@@ -148,38 +91,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_empty_heap() {
-        let mut heap = MaxHeap::new::<i32>();
-        assert_eq!(heap.next(), None);
-    }
+    fn test_queue() {
+        let mut s = MyStack::<i32>::new();
+        assert_eq!(s.pop(), Err("Stack is empty"));
 
-    #[test]
-    fn test_min_heap() {
-        let mut heap = MinHeap::new();
-        heap.add(4);
-        heap.add(2);
-        heap.add(9);
-        heap.add(11);
-        assert_eq!(heap.len(), 4);
-        assert_eq!(heap.next(), Some(2));
-        assert_eq!(heap.next(), Some(4));
-        assert_eq!(heap.next(), Some(9));
-        heap.add(1);
-        assert_eq!(heap.next(), Some(1));
-    }
+        s.push(1);
+        s.push(2);
+        s.push(3);
 
-    #[test]
-    fn test_max_heap() {
-        let mut heap = MaxHeap::new();
-        heap.add(4);
-        heap.add(2);
-        heap.add(9);
-        heap.add(11);
-        assert_eq!(heap.len(), 4);
-        assert_eq!(heap.next(), Some(11));
-        assert_eq!(heap.next(), Some(9));
-        assert_eq!(heap.next(), Some(4));
-        heap.add(1);
-        assert_eq!(heap.next(), Some(2));
+        assert_eq!(s.pop(), Ok(3));
+        assert_eq!(s.pop(), Err("Stack is empty"));
+
+        s.push(4);
+        s.push(5);
+
+        assert_eq!(s.is_empty(), false);
+
+        assert_eq!(s.pop(), Ok(5));
+        assert_eq!(s.pop(), Err("Stack is empty"));
+        assert_eq!(s.pop(), Err("Stack is empty"));
+
+        assert_eq!(s.pop(), Err("Stack is empty"));
+
+        assert_eq!(s.is_empty(), true);
     }
 }
